@@ -35,46 +35,48 @@ def process_file():
         # Leer archivo LAS
         las = laspy.read(input_file)
 
-        # Obtener límites del archivo LAS
-        min_x, max_x = las.header.mins[0], las.header.maxs[0]
-        min_y, max_y = las.header.mins[1], las.header.maxs[1]
-        min_z, max_z = las.header.mins[2], las.header.maxs[2]
+        # Redondear los límites del espacio al múltiplo más cercano del tamaño del cubo
+        min_x = np.floor(las.x.min() / cube_size) * cube_size
+        max_x = np.ceil(las.x.max() / cube_size) * cube_size
+        min_y = np.floor(las.y.min() / cube_size) * cube_size
+        max_y = np.ceil(las.y.max() / cube_size) * cube_size
+        min_z = np.floor(las.z.min() / cube_size) * cube_size
+        max_z = np.ceil(las.z.max() / cube_size) * cube_size
 
-        # Crear una cuadrícula cúbica
+        # Crear la cuadrícula tridimensional
         x_edges = np.arange(min_x, max_x + cube_size, cube_size)
         y_edges = np.arange(min_y, max_y + cube_size, cube_size)
         z_edges = np.arange(min_z, max_z + cube_size, cube_size)
 
-        # Asignar puntos a cubos
-        x_indices = np.digitize(las.x, x_edges) - 1
-        y_indices = np.digitize(las.y, y_edges) - 1
-        z_indices = np.digitize(las.z, z_edges) - 1
+        # Procesar cada cubo en la cuadrícula
+        for i, x_min in enumerate(x_edges[:-1]):
+            for j, y_min in enumerate(y_edges[:-1]):
+                for k, z_min in enumerate(z_edges[:-1]):
+                    x_max = x_min + cube_size
+                    y_max = y_min + cube_size
+                    z_max = z_min + cube_size
 
-        unique_indices = set(zip(x_indices, y_indices, z_indices))
+                    # Filtrar puntos dentro del cubo
+                    mask = (
+                        (las.x >= x_min) & (las.x < x_max) &
+                        (las.y >= y_min) & (las.y < y_max) &
+                        (las.z >= z_min) & (las.z < z_max)
+                    )
+                    cube_points = las.points[mask]
 
-        for idx in unique_indices:
-            cube_x, cube_y, cube_z = idx
+                    if len(cube_points) == 0:
+                        continue
 
-            # Filtrar puntos para este cubo
-            mask = (
-                (x_indices == cube_x) &
-                (y_indices == cube_y) &
-                (z_indices == cube_z)
-            )
+                    # Crear un nuevo archivo LAS para este cubo
+                    cube_las = laspy.LasData(las.header)
+                    cube_las.points = cube_points
 
-            cube_points = las.points[mask]
+                    # Generar el nombre del archivo de salida
+                    output_file_name = f"{os.path.splitext(os.path.basename(input_file))[0]}_{i}_{j}_{k}.las"
+                    output_path = os.path.join(output_folder, output_file_name)
 
-            if len(cube_points) == 0:
-                continue
-
-            # Crear un nuevo objeto LasData para este cubo
-            cube_las = laspy.LasData(las.header)
-            cube_las.points = cube_points
-
-            output_file_name = f"{os.path.splitext(os.path.basename(input_file))[0]}_{cube_x}_{cube_y}_{cube_z}.las"
-            output_path = os.path.join(output_folder, output_file_name)
-
-            cube_las.write(output_path)
+                    # Guardar el archivo LAS
+                    cube_las.write(output_path)
 
         messagebox.showinfo("Éxito", "El archivo ha sido procesado correctamente.")
 
