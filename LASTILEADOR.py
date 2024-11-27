@@ -18,6 +18,20 @@ def select_output_folder():
     if folder_path:
         output_folder_var.set(folder_path)
 
+def get_overlap_with_unit(overlap):
+    """
+    Convierte el valor de solape (en metros) a la unidad más adecuada sin decimales.
+    Retorna una cadena como '21dm', '35cm', '7mm', etc.
+    """
+    if overlap >= 1:  # Convertir a metros
+        return f"{int(overlap * 10)}dm"  # Pasar a decímetros
+    elif overlap >= 0.1:  # Convertir a decímetros
+        return f"{int(overlap * 100)}cm"  # Pasar a centímetros
+    elif overlap >= 0.01:  # Convertir a centímetros
+        return f"{int(overlap * 1000)}mm"  # Pasar a milímetros
+    else:  # Convertir a micrómetros para valores extremadamente pequeños
+        return f"{int(overlap * 10000)}um"
+
 def process_file():
     input_file = input_file_var.get()
     output_folder = output_folder_var.get()
@@ -51,11 +65,13 @@ def process_file():
 
         # Ajustar el tamaño efectivo del cubo para incluir el solape
         effective_cube_size = cube_size + 2 * overlap
+        overlap_str = get_overlap_with_unit(overlap)  # Obtener solape con unidad
 
         # Procesar cada cubo en la cuadrícula
-        for i, x_center in enumerate(x_centers):
-            for j, y_center in enumerate(y_centers):
-                for k, z_center in enumerate(z_centers):
+        for x_center in x_centers:
+            for y_center in y_centers:
+                for z_center in z_centers:
+                    # Calcular límites del cubo con solape
                     x_min = x_center - effective_cube_size / 2
                     x_max = x_center + effective_cube_size / 2
                     y_min = y_center - effective_cube_size / 2
@@ -78,8 +94,20 @@ def process_file():
                     cube_las = laspy.LasData(las.header)
                     cube_las.points = cube_points
 
-                    # Generar el nombre del archivo de salida
-                    output_file_name = f"{os.path.splitext(os.path.basename(input_file))[0]}_{i}_{j}_{k}.las"
+                    # Generar el nombre del archivo de salida basado en los límites
+                    x_min_int = int(np.floor(x_min))  # X mínimo redondeado
+                    y_min_int = int(np.floor(y_min))  # Y mínimo redondeado
+                    z_min_int = int(np.floor(z_min))  # Z mínimo redondeado
+                    x_max_int = int(np.floor(x_max))  # X máximo redondeado
+                    y_max_int = int(np.floor(y_max))  # Y máximo redondeado
+                    z_max_int = int(np.floor(z_max))  # Z máximo redondeado
+
+                    output_file_name = (
+                        f"{os.path.splitext(os.path.basename(input_file))[0]}"
+                        f"_{x_min_int}_{y_min_int}_{z_min_int}"
+                        f"_{x_max_int}_{y_max_int}_{z_max_int}"
+                        f"_OV{overlap_str}.las"
+                    )
                     output_path = os.path.join(output_folder, output_file_name)
 
                     # Guardar el archivo LAS
@@ -92,7 +120,7 @@ def process_file():
 
 # Configuración de la ventana principal
 root = tk.Tk()
-root.title("Troceador de Nube de Puntos LAS con Overlap")
+root.title("Troceador de Nube de Puntos LAS con Coordenadas Extendidas")
 
 # Variables
 input_file_var = tk.StringVar()
