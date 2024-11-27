@@ -22,6 +22,7 @@ def process_file():
     input_file = input_file_var.get()
     output_folder = output_folder_var.get()
     cube_size = float(cube_size_var.get())
+    overlap = float(overlap_var.get())
 
     if not os.path.isfile(input_file):
         messagebox.showerror("Error", "El archivo de entrada no es válido.")
@@ -44,19 +45,25 @@ def process_file():
         max_z = np.ceil(las.z.max() / cube_size) * cube_size
 
         # Crear la cuadrícula tridimensional
-        x_edges = np.arange(min_x, max_x + cube_size, cube_size)
-        y_edges = np.arange(min_y, max_y + cube_size, cube_size)
-        z_edges = np.arange(min_z, max_z + cube_size, cube_size)
+        x_centers = np.arange(min_x + cube_size / 2, max_x, cube_size)
+        y_centers = np.arange(min_y + cube_size / 2, max_y, cube_size)
+        z_centers = np.arange(min_z + cube_size / 2, max_z, cube_size)
+
+        # Ajustar el tamaño efectivo del cubo para incluir el solape
+        effective_cube_size = cube_size + 2 * overlap
 
         # Procesar cada cubo en la cuadrícula
-        for i, x_min in enumerate(x_edges[:-1]):
-            for j, y_min in enumerate(y_edges[:-1]):
-                for k, z_min in enumerate(z_edges[:-1]):
-                    x_max = x_min + cube_size
-                    y_max = y_min + cube_size
-                    z_max = z_min + cube_size
+        for i, x_center in enumerate(x_centers):
+            for j, y_center in enumerate(y_centers):
+                for k, z_center in enumerate(z_centers):
+                    x_min = x_center - effective_cube_size / 2
+                    x_max = x_center + effective_cube_size / 2
+                    y_min = y_center - effective_cube_size / 2
+                    y_max = y_center + effective_cube_size / 2
+                    z_min = z_center - effective_cube_size / 2
+                    z_max = z_center + effective_cube_size / 2
 
-                    # Filtrar puntos dentro del cubo
+                    # Filtrar puntos dentro del cubo con solape
                     mask = (
                         (las.x >= x_min) & (las.x < x_max) &
                         (las.y >= y_min) & (las.y < y_max) &
@@ -85,12 +92,13 @@ def process_file():
 
 # Configuración de la ventana principal
 root = tk.Tk()
-root.title("Troceador de Nube de Puntos LAS")
+root.title("Troceador de Nube de Puntos LAS con Overlap")
 
 # Variables
 input_file_var = tk.StringVar()
 output_folder_var = tk.StringVar()
 cube_size_var = tk.StringVar(value="1")
+overlap_var = tk.StringVar(value="0")
 
 # Widgets
 frame = tk.Frame(root, padx=10, pady=10)
@@ -110,7 +118,11 @@ tk.Label(frame, text="Tamaño del cubo (m):").grid(row=2, column=0, sticky="e")
 cube_size_entry = tk.Entry(frame, textvariable=cube_size_var, width=10)
 cube_size_entry.grid(row=2, column=1, padx=5, pady=5, sticky="w")
 
-tk.Button(frame, text="Procesar", command=process_file, bg="green", fg="white").grid(row=3, column=0, columnspan=3, pady=10)
+tk.Label(frame, text="Solape (m):").grid(row=3, column=0, sticky="e")
+overlap_entry = tk.Entry(frame, textvariable=overlap_var, width=10)
+overlap_entry.grid(row=3, column=1, padx=5, pady=5, sticky="w")
+
+tk.Button(frame, text="Procesar", command=process_file, bg="green", fg="white").grid(row=4, column=0, columnspan=3, pady=10)
 
 # Iniciar la aplicación
 root.mainloop()
